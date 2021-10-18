@@ -70,13 +70,13 @@ def add_metadata_and_chunk_examples(
         if add_metadata:
             # Get the global metadata prefix that is prepended to each training example.
             global_metadata_prefix, global_metadata_special_tokens_prefix = create_global_metadata_prefix(example, cfg)
-            global_metadata_prefix_encoded = (
+            metadata_prefix_encoded = (
                 tokenizer.encode_plus(cfg.metadata_global_start_seq + global_metadata_prefix).input_ids
                 if global_metadata_prefix
                 else []
             )
         else:
-            global_metadata_prefix_encoded = []
+            metadata_prefix_encoded = []
             global_metadata_special_tokens_prefix = ""
 
         if add_metadata:
@@ -109,7 +109,7 @@ def add_metadata_and_chunk_examples(
         else:
             prefix_special_tokens_encoded = []
 
-        if global_metadata_prefix_encoded or prefix_special_tokens_encoded:
+        if metadata_prefix_encoded or prefix_special_tokens_encoded:
             text_with_local_metadata = " " + text_with_local_metadata
             char_level_metadata_mask = [False] + char_level_metadata_mask
 
@@ -120,19 +120,22 @@ def add_metadata_and_chunk_examples(
             char_range = range(char_span.start, char_span.end)
             return any(char_level_metadata_mask[c] for c in char_range)
 
-        token_level_metadata_mask = [
-            is_metadata(idx) for idx, _ in enumerate(text_with_local_metadata_encoded.input_ids)
-        ]
+        if cfg.treat_local_metadata_as_regular_text:
+            token_level_metadata_mask = [0] * len(text_with_local_metadata_encoded.input_ids)
+        else:
+            token_level_metadata_mask = [
+                is_metadata(idx) for idx, _ in enumerate(text_with_local_metadata_encoded.input_ids)
+            ]
 
         # Create chunks of `max_seq_len` tokens.
         prefix_special_tokens_encoded = (
             prefix_special_tokens_encoded + tokenizer.encode(cfg.metadata_special_token_for_generation_sep)
-            if prefix_special_tokens_encoded and cfg.metadata_add_special_token_for_generation
+            if prefix_special_tokens_encoded and cfg.add_local_metadata_special_tokens_in_prefix
             else []
         )
         prefix_encoded = (
-            prefix_special_tokens_encoded + global_metadata_prefix_encoded + tokenizer.encode(cfg.metadata_global_sep)
-            if global_metadata_prefix_encoded
+            prefix_special_tokens_encoded + metadata_prefix_encoded + tokenizer.encode(cfg.metadata_prefix_sep)
+            if metadata_prefix_encoded
             else prefix_special_tokens_encoded
         )
 
