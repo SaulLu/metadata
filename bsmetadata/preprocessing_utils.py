@@ -13,6 +13,7 @@
 """
 This script provides functions for adding different kinds of metadata to a pretraining corpus.
 """
+import logging
 import uuid
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional
@@ -26,6 +27,16 @@ from REL.utils import process_results
 
 from bsmetadata.preprocessing_tools import html_parser
 from bsmetadata.preprocessing_tools.website_desc_utils import WebsiteDescUtils
+
+
+logger = logging.getLogger(__name__)
+
+# Setup logging
+logging.basicConfig(
+    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+    datefmt="%m/%d/%Y %H:%M:%S",
+    level=logging.INFO,
+)
 
 
 def get_path_from_url(url):
@@ -157,6 +168,8 @@ class WebsiteDescPreprocessor(MetadataPreprocessor):
 
             # Try to extract a website description from the given URL and add it to the metadata.
             website_description = self._extract_website_desc_from_url(urls[0])
+            logger.info(f"urls[0]: {urls[0]}")
+            logger.info(f"website_description: {website_description}")
 
             if website_description:
                 metadata.append({"key": "website_description", "type": "global", "value": website_description})
