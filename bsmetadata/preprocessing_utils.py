@@ -13,6 +13,8 @@
 """
 This script provides functions for adding different kinds of metadata to a pretraining corpus.
 """
+import logging
+import sys
 import uuid
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional
@@ -26,6 +28,28 @@ from REL.utils import process_results
 
 from bsmetadata.preprocessing_tools import html_parser
 from bsmetadata.preprocessing_tools.website_desc_utils import WebsiteDescUtils
+
+
+logger = logging.getLogger(__name__)
+
+
+def trace_calls(frame, event, arg):
+    if event != 'call':
+        return
+    co = frame.f_code
+    func_name = co.co_name
+    if func_name == 'write':
+        # Ignore write() calls from print statements
+        return
+    func_line_no = frame.f_lineno
+    func_filename = co.co_filename
+    caller = frame.f_back
+    caller_line_no = caller.f_lineno
+    caller_filename = caller.f_code.co_filename
+    logger.warning('Call to %s on line %s of %s from line %s of %s' % \
+        (func_name, func_line_no, func_filename,
+         caller_line_no, caller_filename))
+    return
 
 
 def get_path_from_url(url):
@@ -177,17 +201,25 @@ class EntityPreprocessor(MetadataPreprocessor):
         # method to avoid modifying the original state.
         state = self.__dict__.copy()
         # Remove the unpicklable entries.
-        del state['mention_detection']
-        del state['tagger_ner']
-        del state['model']
+        del state["mention_detection"]
+        del state["tagger_ner"]
+        del state["model"]
         return state
 
     def __setstate__(self, state):
-        # Restore instance attributes (i.e., mention_detection).
+        # Restore instance attributes (i.e., mention_detection)
+        logger.info("Inn __setstate__")
         self.__dict__.update(state)
+        logger.info("self.__dict__.update(state) done")
         self.mention_detection = MentionDetection(self.base_url, self.wiki_version)
+        logger.info("self.mention_detection done")
+        sys.settrace(trace_calls)
         self.tagger_ner = load_flair_ner(self.path_or_url_flair_ner_model)
+        logger.info("self.load_flair_ner done")
         self.model = EntityDisambiguation(self.base_url, self.wiki_version, self.config)
+        logger.info("self.model done")
+        logger.info("Inn")
+        sys.settrace(None)
 
     def __init__(self, base_url, path_or_url_flair_ner_model="ner-fast"):
         self.base_url = base_url
@@ -202,9 +234,10 @@ class EntityPreprocessor(MetadataPreprocessor):
         self.model = EntityDisambiguation(self.base_url, self.wiki_version, self.config)
 
     def preprocess(self, examples: Dict[str, List]) -> Dict[str, List]:
-
+        logger.info("Inn")
         for example_text, example_metadata in zip(examples["text"], examples["metadata"]):
             res = self._extract_entity_from_text(example_text)
+            logger.info(f"res: {res}")
             result = self.postprocess_entity(res)
             if not result:
                 continue
