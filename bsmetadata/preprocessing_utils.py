@@ -171,11 +171,30 @@ class WebsiteDescPreprocessor(MetadataPreprocessor):
 class EntityPreprocessor(MetadataPreprocessor):
     """Metadata preprocessor for adding entity information."""
 
+    def __getstate__(self):
+        # Copy the object's state from self.__dict__ which contains
+        # all our instance attributes. Always use the dict.copy()
+        # method to avoid modifying the original state.
+        state = self.__dict__.copy()
+        # Remove the unpicklable entries.
+        del state['mention_detection']
+        del state['tagger_ner']
+        del state['model']
+        return state
+
+    def __setstate__(self, state):
+        # Restore instance attributes (i.e., mention_detection).
+        self.__dict__.update(state)
+        self.mention_detection = MentionDetection(self.base_url, self.wiki_version)
+        self.tagger_ner = load_flair_ner(self.path_or_url_flair_ner_model)
+        self.model = EntityDisambiguation(self.base_url, self.wiki_version, self.config)
+
     def __init__(self, base_url, path_or_url_flair_ner_model="ner-fast"):
         self.base_url = base_url
         self.wiki_version = "wiki_2019"
+        self.path_or_url_flair_ner_model = path_or_url_flair_ner_model
         self.mention_detection = MentionDetection(self.base_url, self.wiki_version)
-        self.tagger_ner = load_flair_ner(path_or_url_flair_ner_model)
+        self.tagger_ner = load_flair_ner(self.path_or_url_flair_ner_model)
         self.config = {
             "mode": "eval",
             "model_path": "ed-wiki-2019",
